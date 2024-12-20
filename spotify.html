@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify 検索</title>
+  <style>
+    .search-results {
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .result-item {
+      margin: 10px;
+      width: 200px;
+      text-align: center;
+    }
+    .result-item img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+    .result-item p {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Spotify 検索</h1>
+
+  <div>
+    <input type="text" id="searchQuery" placeholder="アーティスト名や曲名を入力">
+    <button onclick="searchSpotify()">検索</button>
+  </div>
+
+  <div id="searchResults" class="search-results">
+    <!-- 検索結果がここに表示されます -->
+  </div>
+
+  <div id="player">
+    <h2>曲を再生中</h2>
+    <iframe id="spotify-player" src="" allow="autoplay; encrypted-media" allowfullscreen="true"></iframe>
+  </div>
+
+  <script>
+    const CLIENT_ID = 'ae723a5e84964732874263dfabdf4266'; // SpotifyのClient ID
+    const CLIENT_SECRET = '0cb84f7a2e0f42cc9b552e98362be179'; // SpotifyのClient Secret
+
+    let accessToken = '';
+    let player;
+
+    // アクセストークンを取得する関数
+    async function getAccessToken() {
+      const tokenUrl = 'https://accounts.spotify.com/api/token';
+      const headers = new Headers({
+        'Authorization': 'Basic ' + btoa(CLIENT_ID + ':' + CLIENT_SECRET),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      });
+
+      const body = new URLSearchParams();
+      body.append('grant_type', 'client_credentials');
+
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: headers,
+        body: body,
+      });
+
+      const data = await response.json();
+      accessToken = data.access_token;
+    }
+
+    // Spotify APIを使って検索を実行する関数
+    async function searchSpotify() {
+      const query = document.getElementById('searchQuery').value;
+      if (!query) {
+        alert('検索クエリを入力してください');
+        return;
+      }
+
+      // アクセストークンを取得
+      if (!accessToken) {
+        await getAccessToken();
+      }
+
+      // 検索クエリをSpotify APIに送信
+      const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track,album,artist&limit=10`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      });
+
+      const data = await response.json();
+      displaySearchResults(data);
+    }
+
+    // 検索結果を画面に表示する関数
+    function displaySearchResults(data) {
+      const resultsContainer = document.getElementById('searchResults');
+      resultsContainer.innerHTML = '';  // 既存の検索結果をクリア
+
+      const trackResults = data.tracks.items;
+      const albumResults = data.albums.items;
+      const artistResults = data.artists.items;
+
+      // トラックを表示
+      trackResults.forEach(track => {
+        const trackElement = createResultElement(track.name, track.album.images[0]?.url, track.artists[0].name, track.external_urls.spotify);
+        resultsContainer.appendChild(trackElement);
+      });
+
+      // アルバムを表示
+      albumResults.forEach(album => {
+        const albumElement = createResultElement(album.name, album.images[0]?.url, album.artists[0].name, album.external_urls.spotify);
+        resultsContainer.appendChild(albumElement);
+      });
+
+      // アーティストを表示
+      artistResults.forEach(artist => {
+        const artistElement = createResultElement(artist.name, artist.images[0]?.url, '', artist.external_urls.spotify);
+        resultsContainer.appendChild(artistElement);
+      });
+    }
+
+    // 検索結果のアイテムを作成する関数
+    function createResultElement(name, imageUrl, artistName, spotifyUrl) {
+      const div = document.createElement('div');
+      div.classList.add('result-item');
+
+      const img = document.createElement('img');
+      img.src = imageUrl || 'https://via.placeholder.com/200';  // 画像がない場合のプレースホルダー
+      img.alt = name;
+
+      const title = document.createElement('p');
+      title.textContent = name;
+
+      const subTitle = document.createElement('p');
+      subTitle.textContent = artistName || 'アーティスト情報なし';
+
+      const link = document.createElement('a');
+      link.href = spotifyUrl;
+      link.target = '_blank';
+      link.textContent = 'Spotifyで見る';
+
+      div.appendChild(img);
+      div.appendChild(title);
+      div.appendChild(subTitle);
+      div.appendChild(link);
+
+      return div;
+    }
+  </script>
+</body>
+</html>
